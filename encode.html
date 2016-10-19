@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Encode</title>
+        <style>
+            .encode-options input {
+                display: block;
+                padding: 0.5em;
+                margin: 1em;
+            }
+        </style>
+        <script type="text/javascript" src="js/libs/secrets.js/secrets.js"></script>
+    </head>
+    <body>
+        <h1>Encode</h1>
+        <form class="encode-options" action="index.html" method="post">
+            <input id="secret-input" required placeholder="Enter Secret"/>
+            <input type="number" id="number-of-shares-input" required  placeholder="Number of Shares"/>
+            <input type="number" id="threshold-shares-input" required placeholder="Number required"/>
+            <ul id="key-file-inputs"></ul>
+            <input type="submit" id="generate-shares">Encode</input>
+        </form>
+        <div class="output">
+            <div id="status-output"></div>
+            <div id="share-output"></div>
+        </div>
+        <script type="text/javascript">
+            function clearElement(id){
+                const myNode = document.getElementById(id);
+                while (myNode.firstChild) {
+                    myNode.removeChild(myNode.firstChild);
+                }
+            }
+
+            function reportStatus(s){
+                const statusText = document.createTextNode(s);
+                const statusEl = document.createElement('div');
+                statusEl.appendChild(statusText);
+                document.getElementById('status-output').appendChild(statusEl);
+            }
+
+            function valid(){
+                reportStatus('Validating inputs');
+                const payload = document.getElementById('secret-input').value;
+                if(!payload){
+                    alert('empty payload');
+                    return false;
+                }
+                return true;
+            }
+
+            function displayShares(shares){
+                console.log('shares',shares);
+                clearElement('share-output');
+                const outputEl = document.getElementById('share-output');
+                const list = document.createElement('ol');
+                shares.map(share => {
+                    const item = document.createElement('li');
+                    item.appendChild(document.createTextNode(share));
+                    return item;
+                }).forEach(listItem => list.appendChild(listItem));
+                outputEl.appendChild(list);
+            }
+
+            function loadKeyFileInto(targetInput){
+                return function loadKeyFileFrom(ev){
+                    const path = ev.target.value;
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                        targetInput.value = ev.target.result;
+                    }
+                    reader.onerror = console.log.bind(console, 'Filereader error:');
+                    reader.readAsText(ev.target.files[0]);
+                    // targetInput.value = path;
+                };
+            }
+
+            function displayKeyFileInputs(n){
+                n = parseInt(n);
+                console.log(`displaying ${n} file inputs`)
+                clearElement('key-file-inputs');
+                const list = document.getElementById('key-file-inputs');
+                const a = new Array(n).fill(0);
+                a.map((x,i) => {
+                    const li = document.createElement('li');
+                    const input = document.createElement('input');
+                    input.setAttribute('type', 'file');
+                    input.setAttribute('required', true);
+                    input.classList.add('public-key-file-input');
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.setAttribute('type', 'hidden');
+                    hiddenInput.classList.add('public-key-content');
+                    input.addEventListener('change', loadKeyFileInto(hiddenInput));
+                    li.appendChild(input);
+                    li.appendChild(hiddenInput);
+                    return li;
+                }).forEach(li => list.appendChild(li));
+
+            }
+
+            document.getElementById('number-of-shares-input').addEventListener('change', ev => displayKeyFileInputs(ev.target.value));
+
+            document.getElementById('generate-shares').addEventListener('click', ev => {
+                ev.preventDefault();
+                reportStatus('Generating shares');
+                if(!valid()){
+                    return;
+                }
+                const payload = document.getElementById('secret-input').value;
+                const payloadHex = secrets.str2hex(payload);
+                const totalShares = parseInt(document.getElementById('number-of-shares-input').value);
+                const thresholdShares = parseInt(document.getElementById('threshold-shares-input').value);
+
+                const shares = secrets.share(payloadHex, totalShares, thresholdShares);
+                displayShares(shares);
+                if(shares.length !== totalShares){
+                    alert('insufficient shares generated for some reason');
+                    return;
+                }
+
+
+            })
+        </script>
+    </body>
+</html>
